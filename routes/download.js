@@ -20,7 +20,6 @@ router.get("/download", async (req, res) => {
         const isVideo = /\/video\/\d+/.test(url);
 
         if (isPhoto) {
-            console.log("[DOWNLOAD] PHOTO -> Puppeteer");
 
             const item = await getTikTokPhoto(url);
 
@@ -36,8 +35,6 @@ router.get("/download", async (req, res) => {
             return res.status(400).json(fail("Unsupported TikTok URL."));
         }
 
-        console.log("[DOWNLOAD] VIDEO -> Oldschool");
-
         const response = await axios.get(url, {
             headers: {
                 "User-Agent": USER_AGENT,
@@ -47,10 +44,6 @@ router.get("/download", async (req, res) => {
 
         const $ = cheerio.load(response.data);
         const universalData = $("#__UNIVERSAL_DATA_FOR_REHYDRATION__").html();
-
-        console.log(`[OLDSCHOOL] Status: ${response.status}`);
-        console.log(`[OLDSCHOOL] HTML length: ${response.data.length}`);
-        console.log(`[OLDSCHOOL] Universal: ${universalData ? "FOUND" : "NOT FOUND"}`);
 
         if (!universalData) {
             return res.status(404).json(fail("TikTok data not found."));
@@ -79,6 +72,11 @@ router.get("/download", async (req, res) => {
         const tokenLink = encodeURIComponent(encode(urlStream));
 
         delete item.video.bitrateInfo;
+        delete item.video.PlayAddrStruct;
+        delete item.video.claInfo;
+        delete item.video.shareCover;
+        delete item.video.challenges;
+        delete item.video.textExtra;
         delete item.video.zoomCover;
         delete item.video.challenges;
         delete item.video.playAddr;

@@ -25,8 +25,6 @@ export async function getTikTokPhoto(tiktokUrl) {
             "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
         });
 
-        console.log("[PHOTO] Initializing TikTok session...");
-
         await page.goto("https://www.tiktok.com/", {
             waitUntil: "domcontentloaded",
             timeout: NAVIGATION_TIMEOUT
@@ -46,8 +44,6 @@ export async function getTikTokPhoto(tiktokUrl) {
                 responses.push(response);
             } catch { }
         });
-
-        console.log(`[PHOTO] Opening ${itemId}...`);
 
         await page.goto(tiktokUrl, {
             waitUntil: "domcontentloaded",
