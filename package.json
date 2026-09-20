@@ -10,6 +10,7 @@
     "@sparticuz/chromium-min": "^149.0.0",
     "axios": "^1.12.2",
     "cheerio": "^1.1.2",
+    "cors": "^2.8.6",
     "express": "^5.1.0",
     "puppeteer-core": "^24.25.0"
   }
