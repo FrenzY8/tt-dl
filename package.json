@@ -3,8 +3,8 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node api/index.js",
-    "start": "node api/index.js"
+    "dev": "node index.js",
+    "start": "node index.js"
   },
   "dependencies": {
     "@sparticuz/chromium-min": "^149.0.0",
