@@ -5,21 +5,21 @@ import watchRouter from "./routes/watch.js";
 
 const app = express();
 
-app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range");
-    res.setHeader(
-        "Access-Control-Expose-Headers",
-        "Content-Type, Content-Length, Content-Range, Accept-Ranges"
-    );
+app.use(cors({
+    origin: "*",
+    methods: ["GET", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Range"],
+    exposedHeaders: [
+        "Content-Type",
+        "Content-Length",
+        "Content-Range",
+        "Accept-Ranges"
+    ]
+}));
 
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(204);
-    }
+app.options(/.*/, cors());
 
-    next();
-});
+app.use(express.json());
 
 app.get("/", (req, res) => {
     res.json({
@@ -36,13 +36,18 @@ app.use("/api", downloadRouter);
 app.use("/api", watchRouter);
 
 app.use((req, res) => {
-    res.status(404).json({ success: false, message: "Route not found." });
+    res.status(404).json({
+        success: false,
+        message: "Route not found."
+    });
 });
 
 const PORT = process.env.PORT || 3000;
 
 if (!process.env.VERCEL) {
-    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
 }
 
 export default app;
