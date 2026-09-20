@@ -44,7 +44,7 @@ export async function getTikTokPhoto(tiktokUrl) {
                 if (url.searchParams.get("itemId") !== itemId) return;
 
                 responses.push(response);
-            } catch {}
+            } catch { }
         });
 
         console.log(`[PHOTO] Opening ${itemId}...`);
@@ -72,7 +72,7 @@ export async function getTikTokPhoto(tiktokUrl) {
                         data = json;
                         break;
                     }
-                } catch {}
+                } catch { }
             }
 
             if (!data) await wait(250);
@@ -92,6 +92,9 @@ export async function getTikTokPhoto(tiktokUrl) {
         const result = structuredClone(item);
 
         result.type = "photo";
+
+        delete result.challenges;
+        delete result.textExtra;
 
         result.imagePost.images = sourceImages.map((image, index) => ({
             index,
@@ -128,7 +131,7 @@ export async function getTikTokPhoto(tiktokUrl) {
         if (browser) {
             try {
                 await browser.close();
-            } catch {}
+            } catch { }
         }
     }
 }
