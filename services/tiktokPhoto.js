@@ -89,9 +89,47 @@ export async function getTikTokPhoto(tiktokUrl) {
 
         result.type = "photo";
 
+        // =========================
+        // ROOT CLEANUP
+        // =========================
+
         delete result.challenges;
         delete result.textExtra;
         delete result.contents;
+
+        delete result.authorStatsV2;
+        delete result.statsV2;
+
+        delete result.AIGCDescription;
+        delete result.CategoryType;
+        delete result.IsHDBitrate;
+        delete result.ShowAIGC;
+        delete result.creatorAIComment;
+        delete result.backendSourceEventTracking;
+
+        delete result.collected;
+        delete result.digged;
+        delete result.forFriend;
+
+        delete result.duetDisplay;
+        delete result.stitchDisplay;
+
+        delete result.isAd;
+        delete result.isProhibited;
+        delete result.isReviewing;
+        delete result.itemCommentStatus;
+        delete result.item_control;
+
+        delete result.officalItem;
+        delete result.originalItem;
+        delete result.privateItem;
+        delete result.secret;
+        delete result.shareEnabled;
+
+        delete result.textLanguage;
+        delete result.textTranslatable;
+        delete result.titleLanguage;
+        delete result.titleTranslatable;
 
         result.imagePost.images = sourceImages.map((image, index) => ({
             index,

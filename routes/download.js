@@ -71,18 +71,82 @@ router.get("/download", async (req, res) => {
 
         const tokenLink = encodeURIComponent(encode(urlStream));
 
+        // =========================
+        // VIDEO CLEANUP
+        // =========================
+
         delete item.video.bitrateInfo;
         delete item.video.PlayAddrStruct;
         delete item.video.claInfo;
         delete item.video.shareCover;
-        delete item.video.challenges;
-        delete item.video.textExtra;
         delete item.video.zoomCover;
-        delete item.video.challenges;
         delete item.video.playAddr;
         delete item.video.downloadAddr;
         delete item.video.originCover;
         delete item.video.cover;
+
+        delete item.video.reflowCover;
+        delete item.video.encodeUserTag;
+        delete item.video.subtitleInfos;
+        delete item.video.volumeInfo;
+        delete item.video.VQScore;
+
+        // =========================
+        // ROOT CLEANUP
+        // =========================
+
+        delete item.scheduleTime;
+        delete item.challenges;
+        delete item.textExtra;
+        delete item.contents;
+
+        delete item.statsV2;
+        delete item.authorStatsV2;
+
+        delete item.warnInfo;
+        delete item.penaltyContext;
+        delete item.effectStickers;
+        delete item.stickersOnItem;
+        delete item.comments;
+
+        delete item.diversificationLabels;
+        delete item.diversificationId;
+        delete item.suggestedWords;
+        delete item.videoSuggestWordsList;
+        delete item.channelTags;
+
+        delete item.originalItem;
+        delete item.officalItem;
+        delete item.privateItem;
+        delete item.secret;
+        delete item.forFriend;
+        delete item.digged;
+        delete item.collected;
+
+        delete item.itemCommentStatus;
+        delete item.isProhibited;
+        delete item.takeDown;
+        delete item.isAd;
+        delete item.isReviewing;
+
+        delete item.duetEnabled;
+        delete item.stitchEnabled;
+        delete item.duetDisplay;
+        delete item.stitchDisplay;
+        delete item.shareEnabled;
+        delete item.indexEnabled;
+
+        delete item.item_control;
+
+        delete item.IsAigc;
+        delete item.AIGCDescription;
+        delete item.ShowAIGC;
+        delete item.creatorAIComment;
+
+        delete item.backendSourceEventTracking;
+        delete item.CategoryType;
+        delete item.textLanguage;
+        delete item.textTranslatable;
 
         return res.json(
             success({
