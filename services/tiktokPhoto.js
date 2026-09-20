@@ -95,6 +95,7 @@ export async function getTikTokPhoto(tiktokUrl) {
 
         delete result.challenges;
         delete result.textExtra;
+        delete result.contents;
 
         result.imagePost.images = sourceImages.map((image, index) => ({
             index,
