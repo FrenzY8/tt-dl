@@ -21,7 +21,9 @@ export async function getTikTokPhoto(tiktokUrl) {
         const page = await browser.newPage();
 
         await page.setUserAgent(BROWSER_USER_AGENT);
-        await page.setExtraHTTPHeaders({ "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7" });
+        await page.setExtraHTTPHeaders({
+            "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
+        });
 
         console.log("[PHOTO] Initializing TikTok session...");
 
@@ -42,7 +44,7 @@ export async function getTikTokPhoto(tiktokUrl) {
                 if (url.searchParams.get("itemId") !== itemId) return;
 
                 responses.push(response);
-            } catch { }
+            } catch {}
         });
 
         console.log(`[PHOTO] Opening ${itemId}...`);
@@ -70,52 +72,47 @@ export async function getTikTokPhoto(tiktokUrl) {
                         data = json;
                         break;
                     }
-                } catch { }
+                } catch {}
             }
 
             if (!data) await wait(250);
         }
 
-        if (!data) throw new Error("TikTok item/detail tidak memberikan data.");
+        if (!data) {
+            throw new Error("TikTok item/detail tidak memberikan data.");
+        }
 
         const item = data.itemInfo.itemStruct;
         const sourceImages = item?.imagePost?.images;
 
-        if (!Array.isArray(sourceImages) || !sourceImages.length) throw new Error("TikTok photo carousel tidak ditemukan.");
+        if (!Array.isArray(sourceImages) || !sourceImages.length) {
+            throw new Error("TikTok photo carousel tidak ditemukan.");
+        }
 
         const result = structuredClone(item);
 
         result.type = "photo";
 
-        result.imagePost.images = sourceImages.map((image, index) => {
-            const urls = image?.imageURL?.urlList || [];
-            const originalUrl = urls[0] || null;
-
-            return {
-                index,
-                imageWidth: image?.imageWidth ?? null,
-                imageHeight: image?.imageHeight ?? null,
-                stream_url: createWatchUrl(originalUrl)
-            };
-        });
+        result.imagePost.images = sourceImages.map((image, index) => ({
+            index,
+            imageWidth: image?.imageWidth ?? null,
+            imageHeight: image?.imageHeight ?? null,
+            url: image?.imageURL?.urlList?.[0] || null
+        }));
 
         if (result.imagePost.cover) {
-            const coverUrl = result.imagePost.cover?.imageURL?.urlList?.[0] || null;
-
             result.imagePost.cover = {
                 imageWidth: result.imagePost.cover?.imageWidth ?? null,
                 imageHeight: result.imagePost.cover?.imageHeight ?? null,
-                stream_url: createWatchUrl(coverUrl)
+                url: result.imagePost.cover?.imageURL?.urlList?.[0] || null
             };
         }
 
         if (result.imagePost.shareCover) {
-            const coverUrl = result.imagePost.shareCover?.imageURL?.urlList?.[0] || null;
-
             result.imagePost.shareCover = {
                 imageWidth: result.imagePost.shareCover?.imageWidth ?? null,
                 imageHeight: result.imagePost.shareCover?.imageHeight ?? null,
-                stream_url: createWatchUrl(coverUrl)
+                url: result.imagePost.shareCover?.imageURL?.urlList?.[0] || null
             };
         }
 
@@ -131,7 +128,7 @@ export async function getTikTokPhoto(tiktokUrl) {
         if (browser) {
             try {
                 await browser.close();
-            } catch { }
+            } catch {}
         }
     }
 }
