@@ -31,6 +31,10 @@ router.get("/download", async (req, res) => {
             );
         }
 
+        if (!isVideo) {
+            return res.status(400).json(fail("Unsupported TikTok URL."));
+        }
+
         const response = await axios.get(url, {
             headers: {
                 "User-Agent": USER_AGENT,

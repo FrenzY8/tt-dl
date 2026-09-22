@@ -15,9 +15,12 @@ router.get("/watch", async (req, res) => {
         const token = decodeURIComponent(String(tokenParam));
         const url = decode(token);
 
+        if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json(fail("Invalid media URL."));
+
         const headers = {
             "User-Agent": USER_AGENT,
-            Referer: "https://www.tiktok.com/"
+            "Referer": "https://www.tiktok.com/",
+            "Accept": "*/*"
         };
 
         if (req.headers.range) headers.Range = req.headers.range;
@@ -27,12 +30,14 @@ router.get("/watch", async (req, res) => {
             url,
             responseType: "stream",
             headers,
+            timeout: 30000,
+            maxRedirects: 5,
             validateStatus: () => true
         });
 
         if (response.status >= 400) {
             response.data.destroy();
-            return res.status(response.status).json(fail("Unable to fetch media."));
+            return res.status(response.status).json(fail(`Unable to fetch media. Upstream status: ${response.status}`));
         }
 
         const allowedHeaders = [
@@ -49,6 +54,9 @@ router.get("/watch", async (req, res) => {
             const value = response.headers[header];
             if (value !== undefined) res.setHeader(header, value);
         }
+
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 
         res.status(response.status);
 

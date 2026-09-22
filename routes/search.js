@@ -1,93 +1,76 @@
 import { Router } from "express";
+import axios from "axios";
+import * as cheerio from "cheerio";
 import { createBrowser } from "../lib/browser.js";
-import { USER_AGENT } from "../lib/constants.js";
+import { encode } from "../lib/crypto.js";
+import { BROWSER_USER_AGENT, USER_AGENT } from "../lib/constants.js";
 import { success, fail } from "../lib/response.js";
 
 const router = Router();
-
 const SEARCH_API = "/api/search/general/full/";
-const SEARCH_TIMEOUT = 30000;
+const SEARCH_TIMEOUT = 45000;
 
-function cleanVideo(item) {
-    if (!item) return null;
-
-    return {
-        type: "video",
-        id: item.id || "",
-        desc: item.desc || "",
-        createTime: item.createTime || null,
-
-        author: {
-            id: item.author?.id || "",
-            uniqueId: item.author?.uniqueId || "",
-            nickname: item.author?.nickname || "",
-            avatar: item.author?.avatarThumb || "",
-            verified: item.author?.verified || false
-        },
-
-        video: {
-            width: item.video?.width || 0,
-            height: item.video?.height || 0,
-            duration: item.video?.duration || 0,
-            ratio: item.video?.ratio || "",
-            cover: item.video?.cover || "",
-            dynamicCover: item.video?.dynamicCover || "",
-            playAddr: item.video?.playAddr || ""
-        },
-
-        stats: {
-            diggCount: item.stats?.diggCount || 0,
-            shareCount: item.stats?.shareCount || 0,
-            commentCount: item.stats?.commentCount || 0,
-            playCount: item.stats?.playCount || 0,
-            collectCount: item.stats?.collectCount || 0
-        }
-    };
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function cleanUser(user) {
-    const info = user?.user_info;
+async function getStreamUrl(item) {
+    try {
+        const videoId = item?.id;
+        const uniqueId = item?.author?.uniqueId;
 
-    if (!info) return null;
+        if (!videoId || !uniqueId) return null;
 
-    return {
-        type: "user",
-        id: info.uid || "",
-        uniqueId: info.unique_id || "",
-        nickname: info.nickname || "",
-        signature: info.signature || "",
-        avatar: info.avatar_thumb?.url_list?.[0] || "",
-        verified: !!info.custom_verify,
-        followerCount: info.follower_count || 0,
-        totalFavorited: info.total_favorited || 0,
-        secUid: info.sec_uid || ""
-    };
-}
+        const url = `https://www.tiktok.com/@${uniqueId}/video/${videoId}`;
 
-function cleanSearchResults(data) {
-    const results = [];
-
-    for (const entry of data || []) {
-        // VIDEO
-        if (entry?.type === 1 && entry.item) {
-            const video = cleanVideo(entry.item);
-
-            if (video) results.push(video);
-
-            continue;
-        }
-
-        // USER
-        if (entry?.type === 4 && Array.isArray(entry.user_list)) {
-            for (const user of entry.user_list) {
-                const cleaned = cleanUser(user);
-
-                if (cleaned) results.push(cleaned);
+        const response = await axios.get(url, {
+            timeout: 30000,
+            maxRedirects: 5,
+            headers: {
+                "User-Agent": USER_AGENT,
+                Referer: "https://www.tiktok.com/"
             }
-        }
-    }
+        });
 
-    return results;
+        const $ = cheerio.load(response.data);
+        const universalData = $("#__UNIVERSAL_DATA_FOR_REHYDRATION__").html();
+
+        if (!universalData) return null;
+
+        const json = JSON.parse(universalData);
+        const videoItem = json?.__DEFAULT_SCOPE__?.["webapp.video-detail"]?.itemInfo?.itemStruct;
+
+        if (!videoItem) return null;
+
+        const urlStream =
+            videoItem.video?.PlayAddrStruct?.UrlList?.[2] ||
+            videoItem.video?.PlayAddrStruct?.UrlList?.[1] ||
+            videoItem.video?.PlayAddrStruct?.UrlList?.[0] ||
+            "";
+
+        if (!urlStream) return null;
+
+        const tokenLink = encodeURIComponent(encode(urlStream));
+
+        return `/api/watch?url=${tokenLink}`;
+    } catch (err) {
+        console.error(`[SEARCH STREAM ERROR] ${item?.id || "unknown"}:`, err instanceof Error ? err.message : err);
+        return null;
+    }
+}
+
+async function addStreamUrls(data) {
+    if (!Array.isArray(data)) return data;
+
+    const videos = data.filter(entry => entry?.type === 1 && entry?.item);
+
+    await Promise.all(
+        videos.map(async entry => {
+            entry.item.stream_url = await getStreamUrl(entry.item);
+        })
+    );
+
+    return data;
 }
 
 router.get("/search", async (req, res) => {
@@ -95,134 +78,100 @@ router.get("/search", async (req, res) => {
 
     try {
         const q = String(req.query.q || "").trim();
-        const cursor = Math.max(0, Number.parseInt(req.query.cursor, 10) || 0);
+        const cursor = Math.max(0, Number.parseInt(String(req.query.cursor || "0"), 10) || 0);
 
-        if (!q) {
-            return res.status(400).json(
-                fail("Missing query parameter: q")
-            );
-        }
+        if (!q) return res.status(400).json(fail("Missing query parameter: q"));
 
         browser = await createBrowser();
 
         const page = await browser.newPage();
 
-        await page.setUserAgent(USER_AGENT);
-
+        await page.setUserAgent(BROWSER_USER_AGENT);
         await page.setExtraHTTPHeaders({
             "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
         });
 
-        const searchResponsePromise = page.waitForResponse(
-            response => {
-                if (!response.url().includes(SEARCH_API)) return false;
+        const responses = new Map();
 
-                try {
-                    const url = new URL(response.url());
+        const responseHandler = async response => {
+            const responseUrl = response.url();
 
-                    const keyword = url.searchParams.get("keyword");
-                    const responseCursor = Number(
-                        url.searchParams.get("cursor") || 0
-                    );
+            if (!responseUrl.includes(SEARCH_API)) return;
 
-                    return (
-                        keyword?.toLowerCase() === q.toLowerCase() &&
-                        responseCursor === cursor
-                    );
-                } catch {
-                    return false;
-                }
-            },
-            {
-                timeout: SEARCH_TIMEOUT
+            try {
+                const parsed = new URL(responseUrl);
+                const keyword = parsed.searchParams.get("keyword") || "";
+                const responseCursor = Number(parsed.searchParams.get("cursor") || 0);
+
+                if (keyword.toLowerCase() !== q.toLowerCase()) return;
+                if (!response.ok()) return;
+
+                const json = await response.json();
+
+                responses.set(responseCursor, json);
+
+                console.log(`[SEARCH RESPONSE] status=${response.status()} keyword=${keyword} cursor=${responseCursor}`);
+            } catch (err) {
+                console.error("[SEARCH RESPONSE ERROR]", err instanceof Error ? err.message : err);
             }
-        );
+        };
 
-        const searchUrl =
-            `https://www.tiktok.com/search?q=${encodeURIComponent(q)}`;
+        page.on("response", responseHandler);
 
-        try {
-            await page.goto(searchUrl, {
-                waitUntil: "domcontentloaded",
-                timeout: SEARCH_TIMEOUT
-            });
-        } catch (err) {
-            console.warn(
-                "[SEARCH NAVIGATION WARNING]",
-                err instanceof Error ? err.message : err
-            );
-        }
+        const searchUrl = `https://www.tiktok.com/search?q=${encodeURIComponent(q)}`;
 
-        if (cursor > 0) {
-            const targetPage = Math.ceil(cursor / 12);
-            const maxScrolls = targetPage + 2;
+        await page.goto(searchUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: SEARCH_TIMEOUT
+        });
 
-            for (let i = 0; i < maxScrolls; i++) {
-                await page.evaluate(() => {
-                    window.scrollTo(0, document.body.scrollHeight);
-                });
+        const startedAt = Date.now();
+        let lastScroll = 0;
 
-                await new Promise(resolve => setTimeout(resolve, 1200));
+        while (Date.now() - startedAt < SEARCH_TIMEOUT) {
+            if (responses.has(cursor)) break;
+
+            if (cursor > 0 && Date.now() - lastScroll >= 1000) {
+                await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+                lastScroll = Date.now();
             }
+
+            await sleep(250);
         }
 
-        const response = await searchResponsePromise;
+        page.off("response", responseHandler);
 
-        if (!response) {
-            return res.status(404).json(
-                fail("TikTok search response not found.")
+        const json = responses.get(cursor);
+
+        if (!json) {
+            const captured = [...responses.keys()];
+
+            return res.status(504).json(
+                fail(
+                    captured.length
+                        ? `Cursor ${cursor} not captured. Captured cursors: ${captured.join(", ")}`
+                        : "TikTok search API request was not detected."
+                )
             );
         }
 
-        console.log(
-            `[SEARCH] API ${response.status()} ${response.url()}`
-        );
+        if (json?.status_code !== 0) return res.status(502).json(fail(`TikTok search failed with status ${json?.status_code}.`));
 
-        if (!response.ok()) {
-            return res.status(response.status()).json(
-                fail(`TikTok search returned HTTP ${response.status()}.`)
-            );
-        }
+        await addStreamUrls(json.data);
 
-        const json = await response.json();
-
-        if (json?.status_code !== 0) {
-            return res.status(502).json(
-                fail(`TikTok search failed with status ${json?.status_code}.`)
-            );
-        }
-
-        const results = cleanSearchResults(json.data);
-
-        return res.json(
-            success({
-                query: q,
-                cursor,
-                next_cursor: json.cursor ?? null,
-                has_more: json.has_more === 1,
-                count: results.length,
-                results
-            })
-        );
+        return res.json(success(json));
     } catch (err) {
         console.error("[SEARCH ERROR]", err);
 
         return res.status(500).json(
-            fail(
-                err instanceof Error
-                    ? err.message
-                    : "Internal Server Error"
-            )
+            fail(err instanceof Error ? err.message : "Internal Server Error")
         );
     } finally {
         if (browser) {
             try {
                 await browser.close();
             } catch (err) {
-                console.error(
-                    "[SEARCH BROWSER CLOSE ERROR]",
-                    err instanceof Error ? err.message : err
-                );
+                console.error("[SEARCH BROWSER CLOSE ERROR]", err instanceof Error ? err.message : err);
             }
         }
     }
