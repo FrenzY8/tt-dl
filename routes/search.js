@@ -181,36 +181,41 @@ function cleanupVideoItem(item) {
 }
 
 function addStreamUrls(data) {
-    if (!Array.isArray(data)) return;
+    if (!Array.isArray(data)) return data;
 
     for (const entry of data) {
-        if (
-            entry?.type !== 1 ||
-            !entry?.item
-        ) {
-            continue;
-        }
+        if (entry?.type !== 1 || !entry?.item) continue;
 
         const item = entry.item;
 
-        const urlStream =
-            item.video?.bitrateInfo?.[0]
-                ?.PlayAddr?.UrlList?.[2] ||
-            item.video?.bitrateInfo?.[0]
-                ?.PlayAddr?.UrlList?.[1] ||
-            item.video?.bitrateInfo?.[0]
-                ?.PlayAddr?.UrlList?.[0] ||
-            "";
+        const bitrateInfo = Array.isArray(item.video?.bitrateInfo)
+            ? item.video.bitrateInfo
+            : [];
 
-        item.stream_url =
-            urlStream
-                ? `/api/watch?url=${encodeURIComponent(
-                    encode(urlStream)
-                )}`
-                : null;
+        let urlStream = "";
+
+        for (const bitrate of bitrateInfo) {
+            const urls = bitrate?.PlayAddr?.UrlList;
+
+            if (!Array.isArray(urls)) continue;
+
+            urlStream =
+                urls[2] ||
+                urls[1] ||
+                urls[0] ||
+                "";
+
+            if (urlStream) break;
+        }
+
+        item.stream_url = urlStream
+            ? `/api/watch?url=${encodeURIComponent(encode(urlStream))}`
+            : null;
 
         cleanupVideoItem(item);
     }
+
+    return data;
 }
 
 router.get("/search", async (req, res) => {
