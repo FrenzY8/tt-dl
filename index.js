@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import downloadRouter from "./routes/download.js";
 import watchRouter from "./routes/watch.js";
-
+import searchRouter from "./routes/search.js"
 const app = express();
 
 app.use(cors({
@@ -34,6 +34,7 @@ app.get("/", (req, res) => {
 
 app.use("/api", downloadRouter);
 app.use("/api", watchRouter);
+app.use("/api", searchRouter);
 
 app.use((req, res) => {
     res.status(404).json({
